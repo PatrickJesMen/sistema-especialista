@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DIRPF — Sistema Especialista</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0f12;
+      --surface:  #151820;
+      --border:   #1f2430;
+      --border2:  #2a3040;
+      --text:     #e2e6ef;
+      --muted:    #5c6478;
+      --accent:   #4f8ef7;
+      --accent-d: #1a3d7a;
+      --green:    #2ecc8a;
+      --green-d:  #0d4430;
+      --amber:    #f7c34f;
+      --amber-d:  #4a3700;
+      --red:      #f76060;
+      --red-d:    #4a1010;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      grid-template-rows: 56px 1fr;
+      min-height: 100vh;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .logo-mark {
+      width: 28px; height: 28px;
+      background: var(--accent); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono); font-size: 12px; font-weight: 500;
+      color: #fff; letter-spacing: -0.5px;
+    }
+
+    header h1 { font-size: 14px; font-weight: 500; letter-spacing: 0.04em; }
+
+    .header-meta { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+
+    .mode-badge {
+      font-family: var(--mono); font-size: 10px;
+      padding: 3px 8px; border-radius: 4px; letter-spacing: 0.06em;
+    }
+    .mode-offline { background: var(--green-d); color: var(--green); }
+    .mode-online  { background: var(--accent-d); color: var(--accent); }
+
+    .subtitle { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+    .panel-left {
+      border-right: 1px solid var(--border);
+      padding: 28px 24px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    .section-label {
+      font-family: var(--mono); font-size: 10px;
+      letter-spacing: 0.1em; color: var(--muted);
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+
+    .predicate-group { display: flex; flex-direction: column; gap: 6px; }
+
+    .predicate-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border); border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .predicate-item:hover { border-color: var(--border2); background: #1a1d25; }
+    .predicate-item.checked { border-color: var(--accent); background: #111826; }
+    .predicate-item.checked.negative { border-color: var(--amber); background: #1a1600; }
+
+    .predicate-toggle {
+      width: 18px; height: 18px;
+      border: 1.5px solid var(--border2); border-radius: 4px;
+      flex-shrink: 0; margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, background 0.15s;
+      font-size: 11px;
+    }
+
+    .predicate-item.checked .predicate-toggle {
+      border-color: var(--accent); background: var(--accent); color: #fff;
+    }
+    .predicate-item.checked.negative .predicate-toggle {
+      border-color: var(--amber); background: var(--amber); color: #111;
+    }
+
+    .predicate-info strong {
+      display: block; font-size: 13px; font-weight: 500;
+      font-family: var(--mono); color: var(--text); margin-bottom: 2px;
+    }
+    .predicate-info small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+    .predicate-badge {
+      margin-left: auto; font-family: var(--mono);
+      font-size: 11px; padding: 2px 7px; border-radius: 4px;
+      flex-shrink: 0; align-self: flex-start;
+    }
+    .badge-pos { background: var(--accent-d); color: var(--accent); }
+    .badge-neg { background: var(--amber-d);  color: var(--amber); }
+
+    #score-preview {
+      padding: 14px 16px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: #1a1d25;
+    }
+
+    .btn-inferir {
+      width: 100%; padding: 13px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 8px;
+      font-family: var(--mono); font-size: 13px; font-weight: 500;
+      letter-spacing: 0.04em; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-inferir:hover { opacity: 0.88; }
+    .btn-inferir:active { transform: scale(0.98); }
+
+    .btn-secondary {
+      width: 100%; padding: 9px;
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border2); border-radius: 8px;
+      font-family: var(--mono); font-size: 12px; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--accent); }
+
+    .panel-right {
+      padding: 28px; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 24px;
+    }
+
+    .result-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+    .result-empty {
+      padding: 48px 24px; text-align: center;
+      color: var(--muted); font-size: 13px;
+    }
+
+    .result-header {
+      padding: 20px 24px;
+      display: flex; align-items: center; gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .result-icon {
+      width: 48px; height: 48px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .result-icon.obrigado { background: var(--red-d); }
+    .result-icon.isento   { background: var(--green-d); }
+    .result-icon.manual   { background: var(--amber-d); }
+
+    .result-label { font-size: 11px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .result-value { font-size: 22px; font-weight: 600; margin-top: 2px; }
+    .result-value.obrigado { color: var(--red); }
+    .result-value.isento   { color: var(--green); }
+    .result-value.manual   { color: var(--amber); }
+
+    .result-score { margin-left: auto; text-align: right; }
+    .result-score .score-num { font-family: var(--mono); font-size: 32px; font-weight: 500; }
+    .result-score .score-label { font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+
+    .result-body { padding: 16px 24px; }
+
+    .rules-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .rule-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; border-radius: 6px; background: #1a1d25;
+      font-family: var(--mono); font-size: 12px;
+    }
+    .rule-w.pos { color: var(--accent); }
+    .rule-w.neg { color: var(--amber); }
+
+    .score-bar-wrap {
+      margin: 16px 0 0; padding: 14px 16px;
+      background: #1a1d25; border-radius: 8px;
+    }
+    .score-bar-track {
+      height: 6px; border-radius: 3px;
+      background: var(--border2); position: relative;
+      margin: 8px 0 4px;
+    }
+    .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+    .score-bar-labels {
+      display: flex; justify-content: space-between;
+      font-family: var(--mono); font-size: 10px; color: var(--muted);
+    }
+
+    .history-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+
+    .history-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .btn-sm {
+      background: none; border: 1px solid var(--border2); border-radius: 6px;
+      color: var(--muted); font-family: var(--mono); font-size: 11px;
+      padding: 4px 10px; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-sm:hover       { color: var(--text); border-color: var(--accent); }
+    .btn-sm.danger:hover{ color: var(--red);  border-color: var(--red); }
+
+    .history-empty { padding: 32px; text-align: center; color: var(--muted); font-size: 13px; }
+
+    .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .history-table th {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--muted);
+      text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+    }
+    .history-table td {
+      padding: 9px 10px; border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: middle;
+    }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: #1a1d25; }
+
+    .badge {
+      display: inline-block; font-family: var(--mono);
+      font-size: 10px; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.04em;
+    }
+    .badge-obrigado { background: var(--red-d);   color: var(--red); }
+    .badge-isento   { background: var(--green-d); color: var(--green); }
+    .badge-manual   { background: var(--amber-d); color: var(--amber); }
+
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 auto; }
+    .dot-sim { background: var(--accent); }
+    .dot-nao { background: var(--border2); }
+
+    .sync-toast {
+      position: fixed; bottom: 24px; right: 24px;
+      font-family: var(--mono); font-size: 12px;
+      padding: 10px 16px; border-radius: 8px;
+      background: var(--surface); border: 1px solid var(--border2);
+      color: var(--muted);
+      opacity: 0; transform: translateY(8px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    .sync-toast.show { opacity: 1; transform: translateY(0); }
+    .sync-toast.ok   { border-color: var(--green); color: var(--green); }
+    .sync-toast.fail { border-color: var(--amber); color: var(--amber); }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <header>
+    <div class="logo-mark">SE</div>
+    <h1>Sistema Especialista · DIRPF</h1>
+    <div class="header-meta">
+      <span id="mode-badge" class="mode-badge mode-offline">● LOCAL</span>
+      <span class="subtitle">Matemática Computacional Aplicada · 2026</span>
+    </div>
+  </header>
+
+  <!-- ── Painel esquerdo ── -->
+  <div class="panel-left">
+
+    <div>
+      <p class="section-label">Predicados de Entrada</p>
+      <div class="predicate-group" id="predicates">
+
+        <div class="predicate-item checked" data-key="pessoa_fisica" data-negative="false" style="cursor: not-allowed; opacity: 0.7;">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>PessoaFisica(x)</strong>
+            <small>Indivíduo é pessoa física elegível para análise</small>
+          </div>
+          <span class="predicate-badge badge-pos" style="opacity:.4">fixo</span>
+        </div>
+
+        <div class="predicate-item" data-key="rendimento_alto" data-negative="false">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>RendimentoAlto(x)</strong>
+            <small>Rendimentos tributáveis acima do limite anual</small>
+          </div>
+          <span class="predicate-badge badge-pos">+1.5</span>
+        </div>
+
+        <div class="predicate-item" data-key="rendimento_isento_alto" data-negative="false">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>RendimentoIsentoAlto(x)</strong>
+            <small>Rendimentos isentos/não tributáveis em valor relevante</small>
+          </div>
+          <span class="predicate-badge badge-pos">+1.2</span>
+        </div>
+
+        <div class="predicate-item" data-key="patrimonio_alto" data-negative="false">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>PatrimonioAlto(x)</strong>
+            <small>Bens e direitos acima do limite legal</small>
+          </div>
+          <span class="predicate-badge badge-pos">+1.2</span>
+        </div>
+
+        <div class="predicate-item" data-key="operou_bolsa" data-negative="false">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>OperouBolsa(x)</strong>
+            <small>Realizou operações no mercado financeiro</small>
+          </div>
+          <span class="predicate-badge badge-pos">+1.5</span>
+        </div>
+
+        <div class="predicate-item" data-key="rendimento_baixo" data-negative="true">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>RendimentoBaixo(x)</strong>
+            <small>Rendimentos tributáveis abaixo do limite legal</small>
+          </div>
+          <span class="predicate-badge badge-neg">−0.5</span>
+        </div>
+
+        <div class="predicate-item" data-key="nao_operou_bolsa" data-negative="true">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>NaoOperouBolsa(x)</strong>
+            <small>Não realizou operações no mercado financeiro</small>
+          </div>
+          <span class="predicate-badge badge-neg">−0.5</span>
+        </div>
+
+        <div class="predicate-item" data-key="patrimonio_baixo" data-negative="true">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>PatrimonioBaixo(x)</strong>
+            <small>Bens e direitos abaixo do limite legal</small>
+          </div>
+          <span class="predicate-badge badge-neg">−0.4</span>
+        </div>
+
+        <div class="predicate-item" data-key="informacao_incompleta" data-negative="true">
+          <div class="predicate-toggle">✓</div>
+          <div class="predicate-info">
+            <strong>InformacaoIncompleta(x)</strong>
+            <small>Dados insuficientes para análise conclusiva</small>
+          </div>
+          <span class="predicate-badge badge-neg" style="opacity:.4">manual</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="score-preview">
+      <div class="section-label" style="margin-bottom:8px">Score prévia</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <span id="live-score" style="font-family:var(--mono);font-size:24px;font-weight:500">0.00</span>
+        <span style="font-size:12px;color:var(--muted)">acumulado</span>
+      </div>
+      <div id="live-result" style="font-size:12px;margin-top:4px;color:var(--muted)">—</div>
+    </div>
+
+    <button class="btn-inferir" onclick="executarInferencia()">
+      Executar Inferência →
+    </button>
+
+    <button class="btn-secondary" onclick="resetarPredicados()">
+      Limpar seleção
+    </button>
+
+    <div style="font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:16px;line-height:1.7">
+      <div class="section-label" style="margin-bottom:6px">Modo de operação</div>
+      Rodando <strong style="color:var(--green)">offline</strong> — motor no browser,
+      histórico em <code style="font-family:var(--mono);font-size:10px">localStorage</code>.<br>
+      Com Flask em <code style="font-family:var(--mono);font-size:10px">localhost:5000</code>,
+      sincroniza automaticamente com MySQL.
+    </div>
+
+  </div>
+
+  <!-- ── Painel direito ── -->
+  <div class="panel-right">
+
+    <div>
+      <p class="section-label">Resultado da Inferência</p>
+      <div class="result-card" id="result-card">
+        <div class="result-empty">
+          <div style="font-size:28px;margin-bottom:12px;opacity:.3">⊙</div>
+          <div>Selecione os predicados e execute a inferência</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="history-wrap">
+        <div class="history-header">
+          <p class="section-label" style="margin:0">Histórico de Consultas</p>
+          <div style="display:flex;gap:8px">
+            <button class="btn-sm danger" onclick="limparHistorico()">✕ Limpar</button>
+            <button class="btn-sm" onclick="renderizarHistorico()">↻ Atualizar</button>
+          </div>
+        </div>
+        <div id="history-body">
+          <div class="history-empty">Nenhuma consulta ainda.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="sync-toast" id="sync-toast"></div>
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════
+   MOTOR DE INFERÊNCIA — seção 4 do documento
+   ════════════════════════════════════════════════ */
+
+const PESOS = {
+  rendimento_alto:        1.50,
+  rendimento_isento_alto: 1.20,
+  patrimonio_alto:        1.20,
+  operou_bolsa:           1.50,
+  rendimento_baixo:      -0.50,
+  nao_operou_bolsa:      -0.50,
+  patrimonio_baixo:      -0.40,
+};
+
+function motorInferencia(e) {
+  const ra = !!e.rendimento_alto,
+        ri = !!e.rendimento_isento_alto,
+        pa = !!e.patrimonio_alto,
+        ob = !!e.operou_bolsa,
+        rb = !!e.rendimento_baixo,
+        nob = !!e.nao_operou_bolsa,
+        pb = !!e.patrimonio_baixo,
+        ii = !!e.informacao_incompleta;
+
+  let score = 0.0;
+  const regras = [];
+
+  if (ra) { score += PESOS.rendimento_alto;        regras.push(`RendimentoAlto: +${PESOS.rendimento_alto}`); }
+  if (ri) { score += PESOS.rendimento_isento_alto; regras.push(`RendimentoIsentoAlto: +${PESOS.rendimento_isento_alto}`); }
+  if (pa) { score += PESOS.patrimonio_alto;        regras.push(`PatrimônioAlto: +${PESOS.patrimonio_alto}`); }
+  if (ob) { score += PESOS.operou_bolsa;           regras.push(`OperouBolsa: +${PESOS.operou_bolsa}`); }
+
+  if (rb) { score += PESOS.rendimento_baixo;       regras.push(`RendimentoBaixo: ${PESOS.rendimento_baixo}`); }
+  if (nob) { score += PESOS.nao_operou_bolsa;      regras.push(`NãoOperouBolsa: ${PESOS.nao_operou_bolsa}`); }
+  if (pb) { score += PESOS.patrimonio_baixo;       regras.push(`PatrimônioBaixo: ${PESOS.patrimonio_baixo}`); }
+
+  if (ii) { regras.push(`InformaçãoIncompleta: zera a base`); }
+
+  score = Math.round(score * 100) / 100;
+
+  const resultado = score > 0.0 ? 'OBRIGADO'
+                  : score === 0.0 ? 'ANALISE_MANUAL'
+                  : 'ISENTO';
+
+  return { score, resultado, regras };
+}
+
+/* ════════════════════════════════════════════════
+   ESTADO
+   ════════════════════════════════════════════════ */
+
+const estado = {
+  pessoa_fisica: true,
+  rendimento_alto: false,
+  rendimento_isento_alto: false,
+  patrimonio_alto: false,
+  operou_bolsa: false,
+  rendimento_baixo: false,
+  nao_operou_bolsa: false,
+  patrimonio_baixo: false,
+  informacao_incompleta: false,
+};
+
+document.querySelectorAll('.predicate-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const key = item.dataset.key;
+    if (key === 'pessoa_fisica') return;
+    
+    const isNeg = item.dataset.negative === 'true';
+    const newVal = !estado[key];
+    estado[key] = newVal;
+
+    if (newVal) {
+      if (key === 'informacao_incompleta') {
+        Object.keys(estado).forEach(k => {
+          if (k !== 'pessoa_fisica' && k !== 'informacao_incompleta') {
+            estado[k] = false;
+          }
+        });
+      } else {
+        estado['informacao_incompleta'] = false;
+        
+        if (key === 'rendimento_alto') estado['rendimento_baixo'] = false;
+        if (key === 'rendimento_baixo') estado['rendimento_alto'] = false;
+        
+        if (key === 'operou_bolsa') estado['nao_operou_bolsa'] = false;
+        if (key === 'nao_operou_bolsa') estado['operou_bolsa'] = false;
+        
+        if (key === 'patrimonio_alto') estado['patrimonio_baixo'] = false;
+        if (key === 'patrimonio_baixo') estado['patrimonio_alto'] = false;
+      }
+    }
+
+    document.querySelectorAll('.predicate-item').forEach(node => {
+      const nodeKey = node.dataset.key;
+      const nodeIsNeg = node.dataset.negative === 'true';
+      node.classList.toggle('checked', estado[nodeKey]);
+      if (nodeIsNeg) {
+        node.classList.toggle('negative', estado[nodeKey]);
+      }
+    });
+
+    atualizarPrevia();
+  });
+});
+
+function resetarPredicados() {
+  Object.keys(estado).forEach(k => estado[k] = k === 'pessoa_fisica');
+  document.querySelectorAll('.predicate-item').forEach(item => {
+    item.classList.toggle('checked', item.dataset.key === 'pessoa_fisica');
+    item.classList.remove('negative');
+  });
+  atualizarPrevia();
+}
+
+/* ════════════════════════════════════════════════
+   PRÉVIA LIVE
+   ════════════════════════════════════════════════ */
+
+const CORES = { OBRIGADO:'var(--red)', ISENTO:'var(--green)', ANALISE_MANUAL:'var(--amber)' };
+const LABELS = { OBRIGADO:'Tende a → Obrigado a Declarar', ISENTO:'Tende a → Isento', ANALISE_MANUAL:'Tende a → Análise Manual' };
+
+function atualizarPrevia() {
+  const { score, resultado } = motorInferencia(estado);
+  const cor = CORES[resultado];
+  document.getElementById('live-score').textContent = score.toFixed(2);
+  document.getElementById('live-score').style.color = cor;
+  document.getElementById('live-result').textContent = LABELS[resultado];
+  document.getElementById('live-result').style.color = cor;
+}
+
+/* ════════════════════════════════════════════════
+   EXECUÇÃO
+   ════════════════════════════════════════════════ */
+
+function executarInferencia() {
+  const resultado = motorInferencia(estado);
+  salvarLocal(resultado);
+  renderizarResultado(resultado);
+  renderizarHistorico();
+  sincronizarFlask(resultado); // background, opcional
+}
+
+/* ════════════════════════════════════════════════
+   HISTÓRICO LOCAL
+   ════════════════════════════════════════════════ */
+
+const STORAGE_KEY = 'dirpf_historico';
+
+function salvarLocal(resultado) {
+  const hist = lerHistorico();
+  hist.unshift({
+    id: Date.now(),
+    criado_em: new Date().toLocaleString('pt-BR'),
+    ...JSON.parse(JSON.stringify(estado)),
+    score: resultado.score,
+    resultado: resultado.resultado,
+    regras: resultado.regras,
+    sync: false,
+  });
+  if (hist.length > 100) hist.pop();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(hist));
+}
+
+function lerHistorico() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function limparHistorico() {
+  if (!confirm('Limpar todo o histórico local?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderizarHistorico();
+}
+
+/* ════════════════════════════════════════════════
+   SYNC FLASK (background, não bloqueia)
+   ════════════════════════════════════════════════ */
+
+const API = 'http://localhost:5000';
+
+async function sincronizarFlask(resultado) {
+  try {
+    const resp = await fetch(`${API}/inferir`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(estado),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (resp.ok) {
+      document.getElementById('mode-badge').textContent = '● SYNC';
+      document.getElementById('mode-badge').className = 'mode-badge mode-online';
+      toast('✓ Sincronizado com MySQL', 'ok');
+    }
+  } catch { /* silencioso */ }
+}
+
+function toast(msg, tipo) {
+  const t = document.getElementById('sync-toast');
+  t.textContent = msg;
+  t.className = `sync-toast show ${tipo}`;
+  setTimeout(() => { t.className = 'sync-toast'; }, 2500);
+}
+
+/* ════════════════════════════════════════════════
+   RENDER RESULTADO
+   ════════════════════════════════════════════════ */
+
+const CFG = {
+  OBRIGADO:       { cls:'obrigado', icon:'✕', label:'Obrigado a Declarar', clr:'var(--red)' },
+  ISENTO:         { cls:'isento',   icon:'✓', label:'Isento',              clr:'var(--green)' },
+  ANALISE_MANUAL: { cls:'manual',   icon:'?', label:'Análise Manual',       clr:'var(--amber)' },
+};
+
+function renderizarResultado({ score, resultado, regras }) {
+  const cfg = CFG[resultado] || CFG.ANALISE_MANUAL;
+  
+  const pct = Math.max(0, Math.min(100, ((score + 2) / 6) * 100)).toFixed(1);
+  const zeroPct = (((0 + 2) / 6) * 100).toFixed(1);
+
+  const isIsento = resultado === 'ISENTO';
+  const isAnalise = resultado === 'ANALISE_MANUAL';
+  const isObrigado = resultado === 'OBRIGADO';
+
+  const clrIsento = isIsento ? 'var(--green)' : 'var(--muted)';
+  const clrAnalise = isAnalise ? 'var(--amber)' : 'var(--muted)';
+  const clrObrigado = isObrigado ? 'var(--red)' : 'var(--muted)';
+
+  const regrasHTML = regras.map(r => {
+    const [nome, val=''] = r.split(':').map(s => s.trim());
+    const pos = !val.startsWith('-') && val !== '';
+    return `<div class="rule-item">
+      <span style="color:var(--text)">${nome}</span>
+      <span class="rule-w ${pos?'pos':'neg'}">${val||'—'}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('result-card').innerHTML = `
+    <div class="result-header">
+      <div class="result-icon ${cfg.cls}">${cfg.icon}</div>
+      <div>
+        <div class="result-label">Resultado</div>
+        <div class="result-value ${cfg.cls}">${cfg.label}</div>
+      </div>
+      <div class="result-score">
+        <div class="score-num" style="color:${cfg.clr}">${score.toFixed(2)}</div>
+        <div class="score-label">SCORE</div>
+      </div>
+    </div>
+    <div class="result-body">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--muted);
+                  letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Regras aplicadas</div>
+      <div class="rules-list">
+        ${regrasHTML || '<div style="color:var(--muted);font-size:12px">Nenhuma regra disparada.</div>'}
+      </div>
+      <div class="score-bar-wrap">
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-family:var(--mono);font-size:10px;color:${clrIsento};font-weight:${isIsento?'600':'400'};text-shadow:${isIsento?'0 0 8px rgba(46,204,138,0.3)':'none'}">ISENTO</span>
+          <span style="font-family:var(--mono);font-size:10px;color:${clrAnalise};font-weight:${isAnalise?'600':'400'};text-shadow:${isAnalise?'0 0 8px rgba(247,195,79,0.3)':'none'}">ANÁLISE</span>
+          <span style="font-family:var(--mono);font-size:10px;color:${clrObrigado};font-weight:${isObrigado?'600':'400'};text-shadow:${isObrigado?'0 0 8px rgba(247,96,96,0.3)':'none'}">OBRIGADO</span>
+        </div>
+        <div class="score-bar-track">
+          <div class="score-bar-fill" style="width:${pct}%;background:${cfg.clr};box-shadow: 0 0 8px ${cfg.clr}"></div>
+          <div style="position:absolute;top:-4px;left:${zeroPct}%;width:2px;height:14px;background:var(--border2);border-radius:1px;"></div>
+        </div>
+        <div class="score-bar-labels" style="position:relative;height:14px;">
+          <span style="position:absolute;left:0;">&lt; 0</span>
+          <span style="position:absolute;left:${zeroPct}%;transform:translateX(-50%);">0</span>
+          <span style="position:absolute;right:0;">&gt; 0</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════════
+   RENDER HISTÓRICO
+   ════════════════════════════════════════════════ */
+
+const COLS = [
+  { key:'pessoa_fisica',          label:'PF'  },
+  { key:'rendimento_alto',        label:'RA'  },
+  { key:'rendimento_isento_alto', label:'RIA' },
+  { key:'patrimonio_alto',        label:'PA'  },
+  { key:'operou_bolsa',           label:'OB'  },
+  { key:'rendimento_baixo',       label:'RB'  },
+  { key:'nao_operou_bolsa',       label:'NOB' },
+  { key:'patrimonio_baixo',       label:'PB'  },
+  { key:'informacao_incompleta',  label:'II'  },
+];
+
+function renderizarHistorico() {
+  const body = document.getElementById('history-body');
+  const hist = lerHistorico();
+
+  if (!hist.length) {
+    body.innerHTML = '<div class="history-empty">Nenhuma consulta registrada ainda.</div>';
+    return;
+  }
+
+  const thCols = COLS.map(c => `<th title="${c.key}" style="text-align:center">${c.label}</th>`).join('');
+
+  const trs = hist.map(r => {
+    const cls   = { OBRIGADO:'badge-obrigado', ISENTO:'badge-isento', ANALISE_MANUAL:'badge-manual' }[r.resultado] || 'badge-manual';
+    const lbl   = { OBRIGADO:'Obrigado', ISENTO:'Isento', ANALISE_MANUAL:'Manual' }[r.resultado] || r.resultado;
+    const sync  = r.sync
+      ? '<span title="Salvo no MySQL" style="color:var(--green);font-size:10px">●</span>'
+      : '<span title="Apenas local"  style="color:var(--border2);font-size:10px">●</span>';
+    const dots  = COLS.map(c =>
+      `<td style="text-align:center"><span class="dot ${r[c.key]?'dot-sim':'dot-nao'}"></span></td>`
+    ).join('');
+
+    return `<tr>
+      <td style="color:var(--muted);font-family:var(--mono);font-size:11px;white-space:nowrap">${r.criado_em}</td>
+      ${dots}
+      <td style="font-family:var(--mono);font-size:12px;text-align:right">${parseFloat(r.score).toFixed(2)}</td>
+      <td><span class="badge ${cls}">${lbl}</span></td>
+      <td style="text-align:center">${sync}</td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <table class="history-table">
+      <thead>
+        <tr>
+          <th>Data/Hora</th>${thCols}
+          <th style="text-align:right">Score</th>
+          <th>Resultado</th>
+          <th style="text-align:center" title="Sincronizado com MySQL">DB</th>
+        </tr>
+      </thead>
+      <tbody>${trs}</tbody>
+    </table>`;
+}
+
+/* ════════════════════════════════════════════════
+   INIT
+   ════════════════════════════════════════════════ */
+
+atualizarPrevia();
+renderizarHistorico();
+
+// Testa silenciosamente se o Flask está no ar
+fetch(`${API}/`, { signal: AbortSignal.timeout(1500) })
+  .then(r => { if (r.ok) { document.getElementById('mode-badge').textContent='● SYNC'; document.getElementById('mode-badge').className='mode-badge mode-online'; }})
+  .catch(() => {});
+</script>
+</body>
+</html>
